@@ -8,7 +8,7 @@ industry-standard fairness metrics.
 Research inspired by Fair AI work at **IIT Hyderabad** and globally.
 
 ## Live Demo
-https://tvisha-ag.github.io/algorithmic-fairness-auditor
+https://tvisha-ag.github.io/Algorithmic-Fairness-Auditor/
 
 ## What It Proves
 
