@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algorithmic Fairness Auditor — UCI Adult Income</title>
+<style>
+:root {
+  --ink:      #0f172a;
+  --ink2:     #334155;
+  --ink3:     #64748b;
+  --ink4:     #94a3b8;
+  --bg:       #f8fafc;
+  --bg2:      #f1f5f9;
+  --panel:    #ffffff;
+  --border:   #e2e8f0;
+  --red:      #dc2626;
+  --red-bg:   #fef2f2;
+  --red-bdr:  #fecaca;
+  --green:    #16a34a;
+  --green-bg: #f0fdf4;
+  --green-bdr:#bbf7d0;
+  --blue:     #2563eb;
+  --blue-bg:  #eff6ff;
+  --amber:    #d97706;
+  --amber-bg: #fffbeb;
+  --mono:     'Courier New', monospace;
+  --sans:     system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.6; }
+
+.header { background: #0f172a; color: white; padding: 32px 48px 28px; }
+.eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #475569; margin-bottom: 10px; }
+.header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+.header h1 span { color: #f59e0b; }
+.header-sub { font-family: var(--mono); font-size: 12px; color: #475569; margin-top: 6px; }
+.hstats { display: flex; gap: 36px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #1e293b; }
+.hstat-val { font-size: 22px; font-weight: 700; color: white; font-family: var(--mono); }
+.hstat-lbl { font-size: 10px; color: #475569; font-family: var(--mono); letter-spacing: 0.06em; margin-top: 2px; }
+
+.container { max-width: 1180px; margin: 0 auto; padding: 36px 48px 60px; }
+
+.sec-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink4); margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+.sec-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section { margin-bottom: 36px; }
+
+/* model banner */
+.model-banner { display: flex; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+.mc { flex: 1; padding: 16px 20px; border-right: 1px solid var(--border); }
+.mc:last-child { border-right: none; }
+.mc-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink4); margin-bottom: 6px; }
+.mc-val { font-size: 13px; color: var(--ink); line-height: 1.55; }
+.mc-val code { font-family: var(--mono); font-size: 11px; background: var(--bg2); padding: 1px 5px; border-radius: 3px; }
+
+/* audit cards */
+.audit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.acard { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.acard-head { padding: 13px 17px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.acard-title { font-weight: 700; font-size: 13px; }
+.badge { padding: 3px 9px; border-radius: 20px; font-size: 10px; font-family: var(--mono); font-weight: 600; letter-spacing: 0.04em; }
+.badge-fail { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-bdr); }
+.badge-pass { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bdr); }
+.acard-body { padding: 15px 17px; }
+
+.grp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+.grp-lbl { font-size: 11px; font-family: var(--mono); color: var(--ink3); width: 88px; flex-shrink: 0; }
+.bar-wrap { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.bar { height: 6px; border-radius: 3px; }
+.grp-val { font-family: var(--mono); font-size: 12px; font-weight: 600; width: 42px; text-align: right; }
+
+.mrow { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 5px; }
+.mrow.pass { background: var(--green-bg); }
+.mrow.fail { background: var(--red-bg); }
+.mrow-name { font-family: var(--mono); color: var(--ink2); }
+.mrow-val  { font-family: var(--mono); font-weight: 600; }
+.mrow.pass .mrow-val { color: var(--green); }
+.mrow.fail .mrow-val { color: var(--red); }
+
+/* formula box */
+.fbox { background: #0f172a; color: white; border-radius: 8px; padding: 26px 30px; margin-bottom: 24px; }
+.f-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #475569; margin-bottom: 14px; }
+.f-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+.f-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.f-name { font-family: var(--mono); font-size: 10px; color: #64748b; margin-bottom: 7px; letter-spacing: 0.1em; text-transform: uppercase; }
+.f-eq { font-family: var(--mono); font-size: 13px; color: #f1f5f9; line-height: 1.8; background: #1e293b; padding: 10px 14px; border-radius: 4px; border-left: 3px solid #f59e0b; }
+.f-result { color: #86efac; font-weight: 600; }
+.f-warn   { color: #fca5a5; }
+
+/* summary table */
+.tbl-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { background: var(--bg2); padding: 9px 13px; text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); border: 1px solid var(--border); font-weight: 600; }
+td { padding: 9px 13px; border: 1px solid var(--border); font-family: var(--mono); }
+tr:nth-child(even) td { background: var(--bg2); }
+.pass-cell { color: var(--green); font-weight: 700; }
+.fail-cell { color: var(--red);   font-weight: 700; }
+
+/* research */
+.r-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.rcard { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+.rtag { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; margin-bottom: 9px; }
+.rtag-finding { background: var(--red-bg);   color: var(--red); }
+.rtag-def     { background: var(--blue-bg);  color: var(--blue); }
+.rtag-theorem { background: var(--amber-bg); color: var(--amber); }
+.rtag-fix     { background: var(--green-bg); color: var(--green); }
+.rcard h3 { font-size: 14px; font-weight: 700; margin-bottom: 7px; }
+.rcard p  { font-size: 13px; color: var(--ink2); line-height: 1.7; }
+.rcard ul { padding-left: 18px; margin-top: 7px; }
+.rcard li { font-size: 13px; color: var(--ink2); margin-bottom: 4px; line-height: 1.6; }
+
+footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 18px 48px; font-family: var(--mono); font-size: 11px; color: var(--ink4); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+@media(max-width:900px){
+  .container{padding:20px;}
+  .header{padding:20px 24px;}
+  .audit-grid,.f-grid,.r-grid{grid-template-columns:1fr;}
+  .model-banner{flex-direction:column;}
+  .mc{border-right:none;border-bottom:1px solid var(--border);}
+  .hstats{flex-wrap:wrap;gap:20px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">Algorithmic Fairness · IIT Research Project · Data Science &amp; Ethics</div>
+  <h1>Algorithmic <span>Fairness</span> Auditor</h1>
+  <div style="font-size:14px;color:#94a3b8;margin-top:5px">
+    UCI Adult Income Dataset · Logistic Regression · Disparate Impact · Equalized Odds · Predictive Parity
+  </div>
+  <div class="hstats">
+    <div><div class="hstat-val">0.8333</div><div class="hstat-lbl">Accuracy</div></div>
+    <div><div class="hstat-val">0.8924</div><div class="hstat-lbl">ROC-AUC</div></div>
+    <div><div class="hstat-val">6,000</div><div class="hstat-lbl">Records</div></div>
+    <div><div class="hstat-val">3</div><div class="hstat-lbl">Attributes Audited</div></div>
+    <div><div class="hstat-val" style="color:#f87171">2/3</div><div class="hstat-lbl">Biased</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="section">
+    <div class="sec-title">Model Configuration</div>
+    <div class="model-banner">
+      <div class="mc">
+        <div class="mc-lbl">Algorithm</div>
+        <div class="mc-val">Logistic Regression<br><code>sklearn · C=1.0 · max_iter=1000</code></div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Training Features</div>
+        <div class="mc-val"><code>age · hours_per_week · education · occupation · marital_status</code></div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Protected (Excluded)</div>
+        <div class="mc-val"><code style="color:#dc2626">gender · age_group</code><br>intentionally excluded from training</div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Dataset</div>
+        <div class="mc-val">UCI Adult Income<br>Becker &amp; Kohavi (1996)<br>Target: Income &gt; $50K/year</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Fairness Audit Results — Protected Attributes</div>
+    <div class="audit-grid">
+
+      <div class="acard">
+        <div class="acard-head">
+          <span class="acard-title">Gender</span>
+          <span class="badge badge-fail">✗ BIASED</span>
+        </div>
+        <div class="acard-body">
+          <div class="grp-row">
+            <span class="grp-lbl">Male (priv.)</span>
+            <div class="bar-wrap"><div class="bar" style="width:100%;background:#2563eb"></div></div>
+            <span class="grp-val">31.2%</span>
+          </div>
+          <div class="grp-row">
+            <span class="grp-lbl">Female</span>
+            <div class="bar-wrap"><div class="bar" style="width:34%;background:#dc2626"></div></div>
+            <span class="grp-val">10.7%</span>
+          </div>
+          <div class="mrow fail"><span class="mrow-name">✗ Disparate Impact</span><span class="mrow-val">0.343 &lt; 0.80</span></div>
+          <div class="mrow fail"><span class="mrow-name">✗ Demog. Parity Δ</span><span class="mrow-val">−0.205</span></div>
+          <div class="mrow fail"><span class="mrow-name">✗ Equalized Odds Δ</span><span class="mrow-val">TPR +0.198</span></div>
+          <div class="mrow fail"><span class="mrow-name">✗ Chi-square test</span><span class="mrow-val">p &lt; 0.001 ***</span></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-head">
+          <span class="acard-title">Age: 18-30 vs 31-45</span>
+          <span class="badge badge-fail">✗ BIASED</span>
+        </div>
+        <div class="acard-body">
+          <div class="grp-row">
+            <span class="grp-lbl">31-45 (priv.)</span>
+            <div class="bar-wrap"><div class="bar" style="width:100%;background:#2563eb"></div></div>
+            <span class="grp-val">38.4%</span>
+          </div>
+          <div class="grp-row">
+            <span class="grp-lbl">18-30</span>
+            <div class="bar-wrap"><div class="bar" style="width:32%;background:#dc2626"></div></div>
+            <span class="grp-val">12.3%</span>
+          </div>
+          <div class="mrow fail"><span class="mrow-name">✗ Disparate Impact</span><span class="mrow-val">0.320 &lt; 0.80</span></div>
+          <div class="mrow fail"><span class="mrow-name">✗ Demog. Parity Δ</span><span class="mrow-val">−0.261</span></div>
+          <div class="mrow pass"><span class="mrow-name">✓ Equalized Odds Δ</span><span class="mrow-val">TPR +0.038</span></div>
+          <div class="mrow fail"><span class="mrow-name">✗ Chi-square test</span><span class="mrow-val">p &lt; 0.001 ***</span></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-head">
+          <span class="acard-title">Age: 61+ vs 31-45</span>
+          <span class="badge badge-pass">✓ FAIR</span>
+        </div>
+        <div class="acard-body">
+          <div class="grp-row">
+            <span class="grp-lbl">31-45 (priv.)</span>
+            <div class="bar-wrap"><div class="bar" style="width:100%;background:#2563eb"></div></div>
+            <span class="grp-val">38.4%</span>
+          </div>
+          <div class="grp-row">
+            <span class="grp-lbl">61+</span>
+            <div class="bar-wrap"><div class="bar" style="width:91%;background:#16a34a"></div></div>
+            <span class="grp-val">34.8%</span>
+          </div>
+          <div class="mrow pass"><span class="mrow-name">✓ Disparate Impact</span><span class="mrow-val">0.906 ≥ 0.80</span></div>
+          <div class="mrow pass"><span class="mrow-name">✓ Demog. Parity Δ</span><span class="mrow-val">−0.036</span></div>
+          <div class="mrow pass"><span class="mrow-name">✓ Equalized Odds Δ</span><span class="mrow-val">TPR +0.022</span></div>
+          <div class="mrow pass"><span class="mrow-name">✓ Chi-square test</span><span class="mrow-val">p = 0.187</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Mathematical Proof of Bias — Feldman et al. (2015)</div>
+    <div class="fbox">
+      <div class="f-eyebrow">Disparate Impact · Equalized Odds · Demographic Parity · EEOC 80% Rule</div>
+      <div class="f-title">Formal Definitions &amp; Calculated Values</div>
+      <div class="f-grid">
+        <div>
+          <div class="f-name">Disparate Impact Ratio</div>
+          <div class="f-eq">
+DI = P(Ŷ=1 | A=unprivileged)
+     ─────────────────────────
+     P(Ŷ=1 | A=privileged)
+
+<span class="f-warn">DI &lt; 0.80  →  adverse impact (EEOC)</span>
+          </div>
+        </div>
+        <div>
+          <div class="f-name">Gender: Calculated DI</div>
+          <div class="f-eq">
+DI = P(Ŷ=1 | Female) / P(Ŷ=1 | Male)
+   = 0.1070 / 0.3120
+<span class="f-result">   = 0.343  ←  below 0.80 threshold</span>
+
+<span class="f-warn">χ² = 47.3,  p &lt; 0.001  →  SIGNIFICANT</span>
+          </div>
+        </div>
+        <div>
+          <div class="f-name">Equalized Odds (Hardt et al., 2016)</div>
+          <div class="f-eq">
+Fair iff:
+P(Ŷ=1|Y=1,A=0) = P(Ŷ=1|Y=1,A=1)  [TPR]
+P(Ŷ=1|Y=0,A=0) = P(Ŷ=1|Y=0,A=1)  [FPR]
+
+<span class="f-warn">TPR gap = 0.198  →  violates EO</span>
+          </div>
+        </div>
+        <div>
+          <div class="f-name">Demographic Parity Difference</div>
+          <div class="f-eq">
+DPD = P(Ŷ=1|Female) − P(Ŷ=1|Male)
+    = 0.1070 − 0.3120
+<span class="f-result">    = −0.205  [threshold: |Δ| ≤ 0.05]</span>
+
+<span class="f-warn">|DPD| = 0.205  →  violates DP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Complete Metric Summary</div>
+    <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Privileged</th>
+          <th>Unprivileged</th>
+          <th>P(Ŷ=1) priv</th>
+          <th>P(Ŷ=1) unpriv</th>
+          <th>DI Ratio</th>
+          <th>DPD</th>
+          <th>TPR Gap</th>
+          <th>p-value</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Gender</td><td>Male</td><td>Female</td>
+          <td>0.312</td><td>0.107</td>
+          <td class="fail-cell">0.343</td><td class="fail-cell">−0.205</td>
+          <td class="fail-cell">+0.198</td><td class="fail-cell">&lt;0.001***</td>
+          <td class="fail-cell">✗ BIASED</td>
+        </tr>
+        <tr>
+          <td>Age 18-30</td><td>31-45</td><td>18-30</td>
+          <td>0.384</td><td>0.123</td>
+          <td class="fail-cell">0.320</td><td class="fail-cell">−0.261</td>
+          <td class="pass-cell">+0.038</td><td class="fail-cell">&lt;0.001***</td>
+          <td class="fail-cell">✗ BIASED</td>
+        </tr>
+        <tr>
+          <td>Age 61+</td><td>31-45</td><td>61+</td>
+          <td>0.384</td><td>0.348</td>
+          <td class="pass-cell">0.906</td><td class="pass-cell">−0.036</td>
+          <td class="pass-cell">+0.022</td><td class="pass-cell">0.187</td>
+          <td class="pass-cell">✓ FAIR</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Research Framework &amp; Theoretical Context</div>
+    <div class="r-grid">
+      <div class="rcard">
+        <div class="rtag rtag-finding">Key Finding</div>
+        <h3>Proxy Discrimination Detected</h3>
+        <p>
+          <strong>Gender was excluded from training features</strong> — yet gender bias persists in the output.
+          The model learns a proxy for gender through <code style="font-family:monospace;font-size:12px;background:#f1f5f9;padding:1px 4px">occupation × marital_status</code>.
+          This is "proxy discrimination," documented by Datta, Tschantz &amp; Datta (2017).
+          Removing a sensitive attribute is not sufficient for algorithmic fairness.
+        </p>
+      </div>
+      <div class="rcard">
+        <div class="rtag rtag-def">EEOC Standard</div>
+        <h3>The 80% (Four-Fifths) Rule</h3>
+        <p>
+          The U.S. Equal Employment Opportunity Commission defines adverse impact as DI &lt; 0.80.
+          If a selection procedure selects a protected group at less than 80% the rate of the
+          highest-selected group, it is legally presumed discriminatory. This same standard is
+          applied to hiring algorithms, credit scoring models, and parole recommendation systems.
+        </p>
+      </div>
+      <div class="rcard">
+        <div class="rtag rtag-theorem">Impossibility Theorem</div>
+        <h3>Fairness Cannot Be Simultaneously Satisfied</h3>
+        <p>
+          Chouldechova (2017) and Kleinberg et al. (2016) proved that Demographic Parity,
+          Equalized Odds, and Calibration <strong>cannot all hold simultaneously</strong> unless
+          base rates are equal across groups — which they almost never are in real data.
+          This mathematical impossibility is the central open problem in Fair AI research at IITs.
+        </p>
+      </div>
+      <div class="rcard">
+        <div class="rtag rtag-fix">Debiasing Methods</div>
+        <h3>Recommendations (IBM AI Fairness 360)</h3>
+        <ul>
+          <li><strong>Pre-processing:</strong> Reweighing (Kamiran &amp; Calders, 2012) — adjust training sample weights to equalize positive rates before training</li>
+          <li><strong>In-processing:</strong> Adversarial Debiasing (Zhang et al., 2018) — penalize representations that predict protected attributes</li>
+          <li><strong>Post-processing:</strong> Reject Option Classification — flip near-threshold predictions for unprivileged groups toward positive</li>
+          <li><strong>Ongoing:</strong> Re-run this audit after every model update or data change</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>Algorithmic Fairness Auditor · Python · sklearn · pandas · scipy · UCI Adult Income Dataset</span>
+  <span>Feldman et al. (2015) · Hardt et al. (2016) · Chouldechova (2017) · IBM AI Fairness 360</span>
+</footer>
+</body>
+</html>
